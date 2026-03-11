@@ -11,8 +11,8 @@ header span { margin-left:10px; }
 #searchBar { display:flex; padding:10px; gap:5px; }
 #searchInput { flex:1; padding:8px; font-size:16px; }
 button { cursor:pointer; padding:8px; border:none; border-radius:5px; color:#fff; font-weight:bold; }
-.menu { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:10px; }
-.menu button { background:#e67e22; }
+.menu { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:5px; padding:10px; }
+.menu button { background:#e67e22; font-size:14px; }
 #bookList { padding:10px; display:flex; flex-direction:column; gap:10px; }
 .bookCard { display:flex; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
 .bookCard img { width:100px; object-fit:cover; }
@@ -41,11 +41,8 @@ footer button { flex:1; background:transparent; color:#34495e; font-size:12px; }
 <button id="searchBtn" style="background:#3498db;">Suchen</button>
 </div>
 
-<div class="menu">
-<button id="bestBtn">⭐ Bestseller</button>
-<button id="trendBtn">🔥 Trending</button>
-<button id="fantasyBtn">🧙 Fantasy</button>
-<button id="thrillerBtn">🔪 Thriller</button>
+<div class="menu" id="genreMenu">
+  <!-- Genres werden dynamisch erzeugt -->
 </div>
 
 <div id="bookList"></div>
@@ -76,6 +73,23 @@ let currentPage = 1;
 const maxPage = 20;
 const resultsPerPage = 20;
 let currentBookShops = {}; // speichert Shops für Popup
+
+// Liste der Genres für Google Books API
+const genres = [
+  "Art", "Biography", "Business", "Comics", "Computers", "Cooking", "Education",
+  "Fiction", "History", "Humor", "Law", "Medical", "Music", "Mystery", "Poetry",
+  "Religion", "Romance", "Science", "Science Fiction", "Self-Help", "Sports", 
+  "Travel", "Thriller", "Fantasy"
+];
+
+// Generiere Genre-Buttons
+const genreMenu = document.getElementById('genreMenu');
+genres.forEach(g=>{
+  const btn = document.createElement('button');
+  btn.innerText = g;
+  btn.onclick = ()=>{ startSearch("subject:"+g.toLowerCase()); };
+  genreMenu.appendChild(btn);
+});
 
 function parseBooks(data){
     return (data.items||[]).map(item=>{
@@ -175,11 +189,6 @@ function startSearch(query){
 }
 
 document.getElementById('searchBtn').onclick=()=>{ startSearch(document.getElementById('searchInput').value); }
-document.getElementById('bestBtn').onclick=()=>{ startSearch("bestseller"); }
-document.getElementById('trendBtn').onclick=()=>{ startSearch("2025"); }
-document.getElementById('fantasyBtn').onclick=()=>{ startSearch("subject:fantasy"); }
-document.getElementById('thrillerBtn').onclick=()=>{ startSearch("subject:thriller"); }
-
 document.getElementById('favoritesBtn').onclick=()=>{ showBooks(favorites); document.getElementById('pagination').innerHTML=''; }
 document.getElementById('homeBtn').onclick=()=>{ document.getElementById('bookList').innerHTML=''; document.getElementById('pagination').innerHTML=''; }
 
