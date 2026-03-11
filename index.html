@@ -6,13 +6,13 @@
 <title>BookApp</title>
 <style>
 body { font-family: sans-serif; margin:0; padding:0; background:#ecf0f1; }
-header { background:#fff; padding:15px; font-size:24px; color:#2c3e50; font-weight:bold; display:flex; align-items:center; justify-content:space-between; }
+header { background:#fff; padding:15px; font-size:24px; color:#2c3e50; font-weight:bold; display:flex; align-items:center; justify-content: space-between; }
 header span { margin-left:10px; }
-#searchBar { display:flex; padding:10px; gap:5px; align-items:center; }
+#searchBar { display:flex; padding:10px; gap:5px; }
 #searchInput { flex:1; padding:8px; font-size:16px; }
 button { cursor:pointer; padding:8px; border:none; border-radius:5px; color:#fff; font-weight:bold; }
-.menu { display:flex; gap:5px; padding:10px; overflow-x:auto; }
-.menu button { background:#e67e22; flex-shrink:0; }
+.menu { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:10px; }
+.menu button { background:#e67e22; }
 #bookList { padding:10px; display:flex; flex-direction:column; gap:10px; }
 .bookCard { display:flex; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
 .bookCard img { width:100px; object-fit:cover; }
@@ -21,6 +21,10 @@ button { cursor:pointer; padding:8px; border:none; border-radius:5px; color:#fff
 .bookInfo .author { color:#7f8c8d; }
 .bookInfo .price { color:#27ae60; }
 #pagination { display:flex; justify-content:center; gap:10px; padding:10px; }
+#favoritesBtn { background:#e74c3c; }
+#popupOverlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); display:none; justify-content:center; align-items:center; z-index:1000; }
+#popup { background:#fff; padding:20px; border-radius:10px; text-align:center; max-width:300px; width:80%; }
+#popup button { margin:5px; background:#3498db; }
 footer { display:flex; gap:2px; padding:5px; background:#fff; }
 footer button { flex:1; background:transparent; color:#34495e; font-size:12px; }
 </style>
@@ -29,34 +33,35 @@ footer button { flex:1; background:transparent; color:#34495e; font-size:12px; }
 
 <header>
   📚 <span>BookApp</span>
-  <button id="favBtn" style="background:#e74c3c;">❤️ Favoriten</button>
+  <button id="favoritesBtn">❤️ Favoriten</button>
 </header>
 
 <div id="searchBar">
 <input type="text" id="searchInput" placeholder="Buchtitel, Autor..." />
 <button id="searchBtn" style="background:#3498db;">Suchen</button>
-<select id="genreSelect" style="padding:8px; border-radius:5px;">
-  <option value="">Alle Genres</option>
-  <option value="subject:fiction">Fiction</option>
-  <option value="subject:fantasy">Fantasy</option>
-  <option value="subject:thriller">Thriller</option>
-  <option value="subject:romance">Romance</option>
-  <option value="subject:science">Science</option>
-  <option value="subject:history">History</option>
-  <option value="subject:biography">Biography</option>
-  <option value="subject:mystery">Mystery</option>
-  <option value="subject:comics">Comics</option>
-  <option value="subject:self-help">Self-Help</option>
-  <option value="subject:technology">Technology</option>
-</select>
 </div>
 
-<div class="menu" id="genreMenu">
-<!-- Buttons für beliebte Genres -->
+<div class="menu">
+<button id="bestBtn">⭐ Bestseller</button>
+<button id="trendBtn">🔥 Trending</button>
+<button id="fantasyBtn">🧙 Fantasy</button>
+<button id="thrillerBtn">🔪 Thriller</button>
 </div>
 
 <div id="bookList"></div>
 <div id="pagination"></div>
+
+<!-- Popup für Preisvergleich -->
+<div id="popupOverlay">
+  <div id="popup">
+    <div id="popupTitle" style="margin-bottom:10px;font-weight:bold;"></div>
+    <button id="thaliaBtn">Thalia</button>
+    <button id="buecherBtn">Bücher.de</button>
+    <button id="osianderBtn">Osiander</button>
+    <br>
+    <button id="closePopup" style="background:#e74c3c;">Schließen</button>
+  </div>
+</div>
 
 <footer>
 <button id="homeBtn">🏠 Home</button>
@@ -70,6 +75,7 @@ let currentQuery = "";
 let currentPage = 1;
 const maxPage = 20;
 const resultsPerPage = 20;
+let currentBookShops = {}; // speichert Shops für Popup
 
 function parseBooks(data){
     return (data.items||[]).map(item=>{
@@ -114,7 +120,7 @@ function showBooks(books){
     const container = document.getElementById('bookList');
     container.innerHTML='';
     if(!books.length){
-        container.innerHTML='<div>Keine Bücher gefunden oder API-Limit erreicht. Versuche einen anderen Suchbegriff.</div>';
+        container.innerHTML='<div>Keine Bücher gefunden oder API-Limit erreicht.</div>';
         document.getElementById('pagination').innerHTML='';
         return;
     }
@@ -137,10 +143,9 @@ function showBooks(books){
             card.querySelector('.favBtn').innerText='✅ In Favoriten';
         };
         card.querySelector('.shopBtn').onclick=()=>{ 
-            const shop=prompt(`Wähle Shop:\n1.Thalia\n2.Bücher.de\n3.Osiander`);
-            if(shop==='1') window.open(book.shops.thalia);
-            else if(shop==='2') window.open(book.shops.buecher);
-            else if(shop==='3') window.open(book.shops.osiander);
+            currentBookShops = book.shops;
+            document.getElementById('popupTitle').innerText = book.title;
+            document.getElementById('popupOverlay').style.display='flex';
         };
         container.appendChild(card);
     });
@@ -169,28 +174,21 @@ function startSearch(query){
     searchBooks(query, currentPage).then(showBooks);
 }
 
-document.getElementById('searchBtn').onclick=()=>{ 
-    const genre = document.getElementById('genreSelect').value;
-    const searchTerm = document.getElementById('searchInput').value;
-    startSearch(genre ? `${searchTerm} ${genre}` : searchTerm);
-}
+document.getElementById('searchBtn').onclick=()=>{ startSearch(document.getElementById('searchInput').value); }
+document.getElementById('bestBtn').onclick=()=>{ startSearch("bestseller"); }
+document.getElementById('trendBtn').onclick=()=>{ startSearch("2025"); }
+document.getElementById('fantasyBtn').onclick=()=>{ startSearch("subject:fantasy"); }
+document.getElementById('thrillerBtn').onclick=()=>{ startSearch("subject:thriller"); }
 
-// Genre Buttons Menü
-const genres = ["fiction","fantasy","thriller","romance","science","history","biography","mystery","comics","self-help","technology"];
-const menu = document.getElementById('genreMenu');
-genres.forEach(g=>{
-    const btn = document.createElement('button');
-    btn.innerText = g.charAt(0).toUpperCase() + g.slice(1);
-    btn.onclick = ()=>{ startSearch(`subject:${g}`); }
-    menu.appendChild(btn);
-});
-
-// Favoriten Button oben rechts
-document.getElementById('favBtn').onclick=()=>{ showBooks(favorites); document.getElementById('pagination').innerHTML=''; }
-
-// Home Button
+document.getElementById('favoritesBtn').onclick=()=>{ showBooks(favorites); document.getElementById('pagination').innerHTML=''; }
 document.getElementById('homeBtn').onclick=()=>{ document.getElementById('bookList').innerHTML=''; document.getElementById('pagination').innerHTML=''; }
-</script>
 
+// Popup Buttons
+document.getElementById('thaliaBtn').onclick=()=>{ window.open(currentBookShops.thalia); };
+document.getElementById('buecherBtn').onclick=()=>{ window.open(currentBookShops.buecher); };
+document.getElementById('osianderBtn').onclick=()=>{ window.open(currentBookShops.osiander); };
+document.getElementById('closePopup').onclick=()=>{ document.getElementById('popupOverlay').style.display='none'; };
+
+</script>
 </body>
-</html>
+</html
