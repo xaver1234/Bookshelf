@@ -73,28 +73,32 @@ const resultsPerPage = 20;
 let currentBookShops = {};
 
 const genres = ["fantasy","thriller","romance","science","history","biography","mystery","horror","children","young adult","nonfiction","comics"];
-
+  
 function parseBooks(data){
     return (data.items||[]).map(item=>{
         const vol = item.volumeInfo || {};
         const sale = item.saleInfo || {};
-        const list_price = sale.listPrice || {};
-        const price = list_price.amount ? list_price.amount+' '+(list_price.currencyCode||'€') : "Preis nicht verfügbar";
-        let isbn="";
-        (vol.industryIdentifiers||[]).forEach(id=>{ if(!isbn && ['ISBN_13','ISBN_10'].includes(id.type)) isbn=id.identifier; });
+
+        let price = "Preis im Shop ansehen";
+
+        if (sale && sale.listPrice && sale.listPrice.amount) {
+            price = sale.listPrice.amount + " €";
+        }
+
         const encodedTitle = encodeURIComponent(vol.title || "");
+
         const shops = {
             thalia: `https://www.thalia.de/suche?sq=${encodedTitle}&stype=suchwort`,
             buecher: `https://www.buecher.de/suche?sq=${encodedTitle}&stype=suchwort`,
             osiander: `https://www.osiander.de/suche?sq=${encodedTitle}&stype=suchwort`
         };
+
         return {
             id:item.id,
             title:vol.title||"Unbekannt",
             author:(vol.authors||["Unbekannt"]).join(", "),
             price:price,
             cover:(vol.imageLinks?.thumbnail||'').replace("http://","https://"),
-            isbn:isbn,
             shops: shops
         };
     });
