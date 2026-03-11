@@ -1,634 +1,133 @@
-import requests
-import kivy
-from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
-from kivy.uix.scrollview import ScrollView
-from kivy.uix.label import Label
-from kivy.uix.button import Button
-from kivy.uix.textinput import TextInput
-from kivy.uix.image import AsyncImage
-from kivy.uix.screenmanager import ScreenManager, Screen
-from kivy.uix.behaviors import ButtonBehavior
-from kivy.uix.popup import Popup
-from kivy.uix.progressbar import ProgressBar
-from kivy.metrics import dp
-from kivy.utils import get_color_from_hex
-from kivy.storage.jsonstore import JsonStore
-from kivy.graphics import Color, RoundedRectangle, Rectangle
-import webbrowser
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BookApp</title>
+<style>
+body { font-family: sans-serif; margin:0; padding:0; background:#ecf0f1; }
+header { background:#fff; padding:15px; font-size:24px; color:#2c3e50; font-weight:bold; display:flex; align-items:center; }
+header span { margin-left:10px; }
+#searchBar { display:flex; padding:10px; gap:5px; }
+#searchInput { flex:1; padding:8px; font-size:16px; }
+button { cursor:pointer; padding:8px; border:none; border-radius:5px; color:#fff; font-weight:bold; }
+.menu { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:10px; }
+.menu button { background:#e67e22; }
+#bookList { padding:10px; display:flex; flex-direction:column; gap:10px; }
+.bookCard { display:flex; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+.bookCard img { width:100px; object-fit:cover; }
+.bookInfo { padding:10px; display:flex; flex-direction:column; gap:5px; flex:1; }
+.bookInfo .title { font-weight:bold; font-size:16px; color:#2c3e50; }
+.bookInfo .author { color:#7f8c8d; }
+.bookInfo .price { color:#27ae60; }
+footer { display:flex; gap:2px; padding:5px; background:#fff; }
+footer button { flex:1; background:transparent; color:#34495e; font-size:12px; }
+</style>
+</head>
+<body>
 
-kivy.require("2.1.0")
+<header>📚 <span>BookApp</span></header>
 
-# ----------------------------------------------------------------------
-# Konfiguration (Affiliate-Partner-ID hier eintragen)
-AFFILIATE_PARTNER_ID = "deinpartnerid"  # z.B. für Thalia-Partnerprogramm
-# ----------------------------------------------------------------------
+<div id="searchBar">
+<input type="text" id="searchInput" placeholder="Buchtitel, Autor..." />
+<button id="searchBtn" style="background:#3498db;">Suchen</button>
+</div>
 
-# Speicher für Favoriten
-try:
-    store = JsonStore("book_app_config.json")
-except:
-    store = {}
+<div class="menu">
+<button id="bestBtn">⭐ Bestseller</button>
+<button id="trendBtn">🔥 Trending</button>
+<button id="fantasyBtn">🧙 Fantasy</button>
+<button id="thrillerBtn">🔪 Thriller</button>
+</div>
 
+<div id="bookList"></div>
 
-# ---------------------------
-# Gemeinsame Parser-Funktion
-# ---------------------------
-def parse_books(data):
-    """Extrahiert Bücher aus der Google Books API Antwort und fügt Affiliate-Links hinzu."""
-    books = []
-    for item in data.get("items", []):
-        vol = item["volumeInfo"]
-        sale = item.get("saleInfo", {})
-        list_price = sale.get("listPrice", {})
+<footer>
+<button id="homeBtn">🏠 Home</button>
+<button id="favBtn">❤️ Favoriten</button>
+</footer>
 
-        # Preis ermitteln
-        if list_price.get("amount"):
-            price = f"{list_price['amount']} {list_price.get('currencyCode', '€')}"
-        else:
-            price = "Preis nicht verfügbar"
+<script>
+const AFFILIATE_PARTNER_ID = "deinpartnerid";
+let favorites = JSON.parse(localStorage.getItem('favorites')||'[]');
 
-        # ISBN ermitteln (für Affiliate-Link)
-        isbn = ""
-        for id_obj in vol.get("industryIdentifiers", []):
-            if id_obj["type"] in ["ISBN_13", "ISBN_10"]:
-                isbn = id_obj["identifier"]
-                break
-
-        title = vol.get("title", "Unbekannter Titel")
-        books.append({
-            "id": item["id"],
-            "title": title,
-            "author": ", ".join(vol.get("authors", ["Unbekannt"])),
-            "price": price,
-            "cover": vol.get("imageLinks", {}).get("thumbnail", "").replace("http://", "https://"),
-            "description": vol.get("description", "Keine Beschreibung verfügbar."),
-            "isbn": isbn,
-            "shops": {
-                "thalia": f"https://www.thalia.de/suche?sq={title}&partnerId={AFFILIATE_PARTNER_ID}"
-                          if not isbn else f"https://www.thalia.de/shop/{isbn}?partnerId={AFFILIATE_PARTNER_ID}",
-                "buecher": f"https://www.buecher.de/suche/{title}",
-                "osiander": f"https://www.osiander.de/suche/{title}"
+function parseBooks(data){
+    return (data.items||[]).map(item=>{
+        const vol = item.volumeInfo || {};
+        const sale = item.saleInfo || {};
+        const list_price = sale.listPrice || {};
+        const price = list_price.amount ? list_price.amount+' '+(list_price.currencyCode||'€') : "Preis nicht verfügbar";
+        let isbn="";
+        (vol.industryIdentifiers||[]).forEach(id=>{ if(!isbn && ['ISBN_13','ISBN_10'].includes(id.type)) isbn=id.identifier; });
+        return {
+            id:item.id,
+            title:vol.title||"Unbekannt",
+            author:(vol.authors||["Unbekannt"]).join(", "),
+            price:price,
+            cover:(vol.imageLinks?.thumbnail||'').replace("http://","https://"),
+            description: vol.description||"Keine Beschreibung verfügbar.",
+            isbn:isbn,
+            shops:{
+                thalia: isbn ? `https://www.thalia.de/shop/${isbn}?partnerId=${AFFILIATE_PARTNER_ID}` : `https://www.thalia.de/suche?sq=${vol.title}&partnerId=${AFFILIATE_PARTNER_ID}`,
+                buecher:`https://www.buecher.de/suche/${vol.title}`,
+                osiander:`https://www.osiander.de/suche/${vol.title}`
             }
-        })
-    return books
+        }
+    });
+}
 
+async function searchBooks(query){
+    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&langRestrict=de&maxResults=20&printType=books`;
+    const res = await fetch(url);
+    const data = await res.json();
+    return parseBooks(data);
+}
 
-# ---------------------------
-# API-Funktionen
-# ---------------------------
-def search_books(query):
-    """Suche nach Büchern mit Google Books API."""
-    url = "https://www.googleapis.com/books/v1/volumes"
-    params = {
-        "q": query,
-        "langRestrict": "de",
-        "maxResults": 20,
-        "printType": "books"
+function showBooks(books){
+    const container = document.getElementById('bookList');
+    container.innerHTML='';
+    if(!books.length){
+        container.innerHTML='<div>Keine Bücher gefunden. Versuche einen anderen Suchbegriff.</div>';
+        return;
     }
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        data = response.json()
-    except Exception as e:
-        print("Fehler bei API-Aufruf:", e)
-        return []
-    return parse_books(data)
-
-
-def get_bestsellers():
-    """Aktuelle Bestseller (deutsch)."""
-    url = "https://www.googleapis.com/books/v1/volumes"
-    params = {
-        "q": "bestseller",
-        "langRestrict": "de",
-        "maxResults": 20,
-        "printType": "books"
-    }
-    r = requests.get(url, params=params)
-    return parse_books(r.json())
-
-
-def get_trending():
-    """Trending (neueste Bücher)."""
-    url = "https://www.googleapis.com/books/v1/volumes"
-    params = {
-        "q": "2025",  # aktuelles Jahr
-        "orderBy": "newest",
-        "langRestrict": "de",
-        "maxResults": 20,
-        "printType": "books"
-    }
-    r = requests.get(url, params=params)
-    return parse_books(r.json())
-
-
-def get_category(cat):
-    """Bücher einer bestimmten Kategorie."""
-    url = "https://www.googleapis.com/books/v1/volumes"
-    params = {
-        "q": f"subject:{cat}",
-        "langRestrict": "de",
-        "maxResults": 20,
-        "printType": "books"
-    }
-    r = requests.get(url, params=params)
-    return parse_books(r.json())
-
-
-# ---------------------------
-# Benutzerdefinierte Buchkarte (klickbar)
-# ---------------------------
-class BookCard(ButtonBehavior, BoxLayout):
-    def __init__(self, book_data, callback=None, **kwargs):
-        super().__init__(**kwargs)
-        self.book_data = book_data
-        self.callback = callback
-        self.orientation = "horizontal"
-        self.size_hint_y = None
-        self.height = dp(140)
-        self.spacing = dp(10)
-        self.padding = dp(10)
-
-        # Abgerundete weiße Karte
-        with self.canvas.before:
-            Color(1, 1, 1, 1)
-            self.rect = RoundedRectangle(size=self.size, pos=self.pos, radius=[dp(12)])
-        self.bind(pos=self._update_rect, size=self._update_rect)
-
-        # Cover (oder Platzhalter)
-        cover_source = book_data.get("cover", "")
-        if cover_source:
-            self.image = AsyncImage(
-                source=cover_source,
-                size_hint=(None, 1),
-                width=dp(100),
-                allow_stretch=True,
-                keep_ratio=True
-            )
-        else:
-            # Platzhalter
-            self.image = BoxLayout(size_hint=(None, 1), width=dp(100))
-            with self.image.canvas:
-                Color(0.9, 0.9, 0.9, 1)
-                Rectangle(size=self.image.size, pos=self.image.pos)
-            self.image.add_widget(Label(text="📚", font_size="40sp"))
-        self.add_widget(self.image)
-
-        # Textbereich
-        text_box = BoxLayout(orientation="vertical", spacing=dp(4))
-
-        title = book_data.get("title", "Kein Titel")
-        if len(title) > 45:
-            title = title[:42] + "..."
-
-        self.title_label = Label(
-            text=title,
-            font_size="16sp",
-            bold=True,
-            color=get_color_from_hex("#2c3e50"),
-            size_hint_y=None,
-            height=dp(35),
-            halign="left",
-            valign="middle",
-            text_size=(self.width - dp(130), None)  # später aktualisiert
-        )
-        self.title_label.bind(size=self._update_text_size)
-
-        author = book_data.get("author", "Unbekannt")
-        self.author_label = Label(
-            text=f"von {author}",
-            font_size="14sp",
-            color=get_color_from_hex("#7f8c8d"),
-            size_hint_y=None,
-            height=dp(25),
-            halign="left"
-        )
-
-        price = book_data.get("price", "0,00 €")
-        self.price_label = Label(
-            text=price,
-            font_size="14sp",
-            color=get_color_from_hex("#27ae60"),
-            size_hint_y=None,
-            height=dp(25),
-            halign="left"
-        )
-
-        text_box.add_widget(self.title_label)
-        text_box.add_widget(self.author_label)
-        text_box.add_widget(self.price_label)
-        self.add_widget(text_box)
-
-    def _update_rect(self, instance, value):
-        self.rect.pos = instance.pos
-        self.rect.size = instance.size
-
-    def _update_text_size(self, instance, value):
-        instance.text_size = (self.width - dp(130), None)
-
-    def on_release(self):
-        if self.callback:
-            self.callback(self.book_data)
-
-
-# ---------------------------
-# Hauptbildschirm (Suche & Liste)
-# ---------------------------
-class MainScreen(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.favorites = []  # wird später aus Store geladen
-
-        # Hauptlayout
-        main_layout = BoxLayout(orientation="vertical", spacing=dp(5))
-
-        # Header
-        header = BoxLayout(size_hint_y=0.1, padding=[dp(15), dp(5)])
-        with header.canvas.before:
-            Color(1, 1, 1, 1)
-            self.header_rect = Rectangle(size=header.size, pos=header.pos)
-        header.bind(size=self._update_header, pos=self._update_header)
-        header.add_widget(Label(text="📚 BookApp", font_size="24sp", bold=True, color=get_color_from_hex("#2c3e50")))
-        main_layout.add_widget(header)
-
-        # Suchleiste
-        search_box = BoxLayout(size_hint_y=None, height=dp(50), padding=[dp(10), dp(5)], spacing=dp(5))
-        self.search_input = TextInput(
-            hint_text="Buchtitel, Autor...",
-            multiline=False,
-            size_hint_x=0.7,
-            background_color=(1,1,1,1),
-            foreground_color=get_color_from_hex("#2c3e50")
-        )
-        self.search_input.bind(on_text_validate=self.start_search)  # Enter startet Suche
-        search_btn = Button(
-            text="Suchen",
-            size_hint_x=0.3,
-            background_color=get_color_from_hex("#3498db"),
-            color=(1,1,1,1)
-        )
-        search_btn.bind(on_release=self.start_search)
-        search_box.add_widget(self.search_input)
-        search_box.add_widget(search_btn)
-        main_layout.add_widget(search_box)
-
-        # Kategorie-Menü (Bestseller, Trending, Fantasy, Thriller)
-        menu = GridLayout(cols=2, size_hint_y=None, height=dp(100), spacing=dp(5), padding=[dp(10), 0])
-        btn_best = Button(text="⭐ Bestseller", background_color=get_color_from_hex("#e67e22"), color=(1,1,1,1))
-        btn_best.bind(on_release=lambda x: self.display_books(get_bestsellers()))
-        btn_trend = Button(text="🔥 Trending", background_color=get_color_from_hex("#e67e22"), color=(1,1,1,1))
-        btn_trend.bind(on_release=lambda x: self.display_books(get_trending()))
-        btn_fantasy = Button(text="🧙 Fantasy", background_color=get_color_from_hex("#e67e22"), color=(1,1,1,1))
-        btn_fantasy.bind(on_release=lambda x: self.display_books(get_category("fantasy")))
-        btn_thriller = Button(text="🔪 Thriller", background_color=get_color_from_hex("#e67e22"), color=(1,1,1,1))
-        btn_thriller.bind(on_release=lambda x: self.display_books(get_category("thriller")))
-
-        menu.add_widget(btn_best)
-        menu.add_widget(btn_trend)
-        menu.add_widget(btn_fantasy)
-        menu.add_widget(btn_thriller)
-        main_layout.add_widget(menu)
-
-        # Lade-Indikator (zunächst unsichtbar)
-        self.loading = ProgressBar(value=0, max=100, size_hint_y=None, height=dp(3), opacity=0)
-        main_layout.add_widget(self.loading)
-
-        # Scrollbare Ergebnisliste
-        self.scroll = ScrollView()
-        self.book_layout = BoxLayout(orientation="vertical", spacing=dp(10), padding=[dp(10), dp(5)])
-        self.book_layout.bind(minimum_height=self.book_layout.setter("height"))
-        self.scroll.add_widget(self.book_layout)
-        main_layout.add_widget(self.scroll)
-
-        # Untere Navigation
-        nav = BoxLayout(size_hint_y=0.08, spacing=dp(2))
-        with nav.canvas.before:
-            Color(1, 1, 1, 1)
-            self.nav_rect = Rectangle(size=nav.size, pos=nav.pos)
-        nav.bind(size=self._update_nav, pos=self._update_nav)
-
-        btn_home = Button(text="🏠\nHome", font_size="12sp", background_normal='', background_color=(0,0,0,0), color=get_color_from_hex("#34495e"))
-        btn_home.bind(on_release=lambda x: self.go_home())
-        btn_fav = Button(text="❤️\nFavoriten", font_size="12sp", background_normal='', background_color=(0,0,0,0), color=get_color_from_hex("#34495e"))
-        btn_fav.bind(on_release=lambda x: self.show_favorites())
-
-        nav.add_widget(btn_home)
-        nav.add_widget(btn_fav)
-        main_layout.add_widget(nav)
-
-        self.add_widget(main_layout)
-
-        # Favoriten aus Speicher laden
-        self.load_favorites()
-
-    def _update_header(self, instance, value):
-        self.header_rect.pos = instance.pos
-        self.header_rect.size = instance.size
-
-    def _update_nav(self, instance, value):
-        self.nav_rect.pos = instance.pos
-        self.nav_rect.size = instance.size
-
-    def load_favorites(self):
-        try:
-            if store.exists("favorites"):
-                self.favorites = store.get("favorites").get("books", [])
-            else:
-                self.favorites = []
-        except:
-            self.favorites = []
-
-    def save_favorites(self):
-        try:
-            store.put("favorites", books=self.favorites)
-        except:
-            pass
-
-    def start_search(self, instance):
-        query = self.search_input.text.strip()
-        if not query:
-            return
-        self.book_layout.clear_widgets()
-        self.loading.opacity = 1
-        self.loading.value = 50
-        # Async-Aufruf (in echtem Projekt würde man UrlRequest verwenden; hier einfacher Thread)
-        from kivy.clock import Clock
-        Clock.schedule_once(lambda dt: self.do_search(query), 0.1)
-
-    def do_search(self, query):
-        books = search_books(query)
-        self.loading.opacity = 0
-        self.display_books(books)
-
-    def display_books(self, books):
-        self.book_layout.clear_widgets()
-        if not books:
-            self.book_layout.add_widget(Label(
-                text="Keine Bücher gefunden.\nVersuche einen anderen Suchbegriff.",
-                size_hint_y=None,
-                height=dp(60),
-                color=get_color_from_hex("#7f8c8d")
-            ))
-            return
-        for book in books:
-            card = BookCard(book, callback=self.open_detail)
-            self.book_layout.add_widget(card)
-
-    def open_detail(self, book):
-        self.manager.get_screen("detail").load_book(book)
-        self.manager.current = "detail"
-
-    def go_home(self):
-        self.manager.current = "main"
-
-    def show_favorites(self):
-        fav_screen = self.manager.get_screen("favorites")
-        fav_screen.load_favorites(self.favorites)
-        self.manager.current = "favorites"
-
-
-# ---------------------------
-# Detailbildschirm
-# ---------------------------
-class DetailScreen(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.book = None
-        layout = BoxLayout(orientation="vertical")
-
-        # Header mit Zurück-Button
-        header = BoxLayout(size_hint_y=0.08, padding=[dp(10), dp(5)])
-        back_btn = Button(
-            text="← Zurück",
-            size_hint_x=0.2,
-            background_normal='',
-            background_color=(0,0,0,0),
-            color=get_color_from_hex("#3498db"),
-            font_size="16sp"
-        )
-        back_btn.bind(on_release=self.go_back)
-        header.add_widget(back_btn)
-        header.add_widget(Label())  # Platzhalter
-        layout.add_widget(header)
-
-        # Scrollbarer Inhalt
-        scroll = ScrollView()
-        content = BoxLayout(orientation="vertical", spacing=dp(15), padding=[dp(20), dp(10)], size_hint_y=None)
-        content.bind(minimum_height=content.setter("height"))
-
-        self.cover = AsyncImage(size_hint_y=None, height=dp(200), allow_stretch=True, keep_ratio=True)
-        content.add_widget(self.cover)
-
-        self.title_label = Label(
-            font_size="22sp",
-            bold=True,
-            color=get_color_from_hex("#2c3e50"),
-            size_hint_y=None,
-            halign="left"
-        )
-        self.title_label.bind(size=self.title_label.setter("text_size"))
-        content.add_widget(self.title_label)
-
-        self.author_label = Label(
-            font_size="16sp",
-            color=get_color_from_hex("#7f8c8d"),
-            size_hint_y=None,
-            halign="left"
-        )
-        self.author_label.bind(size=self.author_label.setter("text_size"))
-        content.add_widget(self.author_label)
-
-        self.price_label = Label(
-            font_size="18sp",
-            color=get_color_from_hex("#27ae60"),
-            size_hint_y=None,
-            halign="left"
-        )
-        self.price_label.bind(size=self.price_label.setter("text_size"))
-        content.add_widget(self.price_label)
-
-        self.desc_label = Label(
-            font_size="14sp",
-            color=get_color_from_hex("#34495e"),
-            size_hint_y=None,
-            halign="left"
-        )
-        self.desc_label.bind(size=self.desc_label.setter("text_size"))
-        content.add_widget(self.desc_label)
-
-        self.isbn_label = Label(
-            font_size="12sp",
-            color=get_color_from_hex("#95a5a6"),
-            size_hint_y=None,
-            halign="left"
-        )
-        self.isbn_label.bind(size=self.isbn_label.setter("text_size"))
-        content.add_widget(self.isbn_label)
-
-        self.shop_btn = Button(
-            text="💰 Preis vergleichen",
-            size_hint_y=None,
-            height=dp(50),
-            background_color=get_color_from_hex("#e67e22"),
-            color=(1,1,1,1)
-        )
-        self.shop_btn.bind(on_release=self.open_shop)
-        content.add_widget(self.shop_btn)
-
-        # Favorisieren-Button
-        self.fav_btn = Button(
-            text="❤️ Zu Favoriten hinzufügen",
-            size_hint_y=None,
-            height=dp(50),
-            background_color=get_color_from_hex("#3498db"),
-            color=(1,1,1,1)
-        )
-        self.fav_btn.bind(on_release=self.toggle_favorite)
-        content.add_widget(self.fav_btn)
-
-        scroll.add_widget(content)
-        layout.add_widget(scroll)
-        self.add_widget(layout)
-
-    def load_book(self, book):
-        self.book = book
-        self.title_label.text = book.get("title", "")
-        self.title_label.height = dp(len(self.title_label.text)//2 * 8 + 40)
-
-        self.author_label.text = f"von {book.get('author', 'Unbekannt')}"
-        self.author_label.height = dp(30)
-
-        self.price_label.text = book.get("price", "")
-        self.price_label.height = dp(30)
-
-        self.desc_label.text = book.get("description", "Keine Beschreibung.")
-        self.desc_label.height = dp(len(self.desc_label.text)//2 * 6 + 40)
-
-        self.isbn_label.text = f"ISBN: {book.get('isbn', 'nicht verfügbar')}"
-        self.isbn_label.height = dp(25)
-
-        cover = book.get("cover", "")
-        if cover:
-            self.cover.source = cover
-            self.cover.height = dp(200)
-        else:
-            self.cover.height = dp(0)
-
-        # Prüfen, ob Buch bereits in Favoriten
-        main = self.manager.get_screen("main")
-        is_fav = any(b.get("id") == book.get("id") for b in main.favorites)
-        self.update_fav_button(is_fav)
-
-    def update_fav_button(self, is_fav):
-        if is_fav:
-            self.fav_btn.text = "✅ Bereits in Favoriten"
-            self.fav_btn.background_color = get_color_from_hex("#95a5a6")
-            self.fav_btn.disabled = True
-        else:
-            self.fav_btn.text = "❤️ Zu Favoriten hinzufügen"
-            self.fav_btn.background_color = get_color_from_hex("#3498db")
-            self.fav_btn.disabled = False
-
-    def toggle_favorite(self, instance):
-        if not self.book:
-            return
-        main = self.manager.get_screen("main")
-        if not any(b.get("id") == self.book.get("id") for b in main.favorites):
-            main.favorites.append(self.book)
-            main.save_favorites()
-            self.update_fav_button(True)
-
-    def open_shop(self, instance):
-        if not self.book:
-            return
-        # Popup mit mehreren Shops
-        popup_layout = BoxLayout(orientation="vertical", spacing=10, padding=10)
-        btn1 = Button(text="Thalia", background_color=get_color_from_hex("#2980b9"), color=(1,1,1,1))
-        btn2 = Button(text="Bücher.de", background_color=get_color_from_hex("#2980b9"), color=(1,1,1,1))
-        btn3 = Button(text="Osiander", background_color=get_color_from_hex("#2980b9"), color=(1,1,1,1))
-
-        btn1.bind(on_release=lambda x: webbrowser.open(self.book["shops"]["thalia"]))
-        btn2.bind(on_release=lambda x: webbrowser.open(self.book["shops"]["buecher"]))
-        btn3.bind(on_release=lambda x: webbrowser.open(self.book["shops"]["osiander"]))
-
-        popup_layout.add_widget(btn1)
-        popup_layout.add_widget(btn2)
-        popup_layout.add_widget(btn3)
-
-        popup = Popup(title="Preis vergleichen", content=popup_layout, size_hint=(0.8, 0.4))
-        popup.open()
-
-    def go_back(self, instance):
-        self.manager.current = "main"
-
-
-# ---------------------------
-# Favoritenbildschirm
-# ---------------------------
-class FavoritesScreen(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        layout = BoxLayout(orientation="vertical")
-
-        # Header
-        header = BoxLayout(size_hint_y=0.08, padding=[dp(10), dp(5)])
-        back_btn = Button(
-            text="← Zurück",
-            size_hint_x=0.2,
-            background_normal='',
-            background_color=(0,0,0,0),
-            color=get_color_from_hex("#3498db"),
-            font_size="16sp"
-        )
-        back_btn.bind(on_release=self.go_back)
-        header.add_widget(back_btn)
-        header.add_widget(Label(text="❤️ Meine Favoriten", font_size="18sp", bold=True, color=get_color_from_hex("#2c3e50")))
-        header.add_widget(Label())
-        layout.add_widget(header)
-
-        # Liste
-        self.scroll = ScrollView()
-        self.list_layout = BoxLayout(orientation="vertical", spacing=dp(10), padding=[dp(10), dp(5)])
-        self.list_layout.bind(minimum_height=self.list_layout.setter("height"))
-        self.scroll.add_widget(self.list_layout)
-        layout.add_widget(self.scroll)
-
-        self.add_widget(layout)
-
-    def load_favorites(self, favorites):
-        self.list_layout.clear_widgets()
-        if not favorites:
-            self.list_layout.add_widget(Label(
-                text="Keine Favoriten vorhanden.",
-                size_hint_y=None,
-                height=dp(50),
-                color=get_color_from_hex("#7f8c8d")
-            ))
-            return
-        for book in favorites:
-            card = BookCard(book, callback=self.open_detail)
-            self.list_layout.add_widget(card)
-
-    def open_detail(self, book):
-        self.manager.get_screen("detail").load_book(book)
-        self.manager.current = "detail"
-
-    def go_back(self, instance):
-        self.manager.current = "main"
-
-
-# ---------------------------
-# App-Hauptklasse
-# ---------------------------
-class BookApp(App):
-    def build(self):
-        sm = ScreenManager()
-        sm.add_widget(MainScreen(name="main"))
-        sm.add_widget(DetailScreen(name="detail"))
-        sm.add_widget(FavoritesScreen(name="favorites"))
-        return sm
-
-
-if __name__ == "__main__":
-    BookApp().run()
+    books.forEach(book=>{
+        const card = document.createElement('div');
+        card.className='bookCard';
+        card.innerHTML=`
+            <img src="${book.cover||'https://via.placeholder.com/100x140?text=📚'}" />
+            <div class="bookInfo">
+                <div class="title">${book.title}</div>
+                <div class="author">von ${book.author}</div>
+                <div class="price">${book.price}</div>
+                <button class="favBtn">${favorites.some(f=>f.id===book.id)?'✅ In Favoriten':'❤️ Favorisieren'}</button>
+                <button class="shopBtn">💰 Preis vergleichen</button>
+            </div>
+        `;
+        card.querySelector('.favBtn').onclick=()=>{ 
+            if(!favorites.some(f=>f.id===book.id)) favorites.push(book); 
+            localStorage.setItem('favorites', JSON.stringify(favorites));
+            card.querySelector('.favBtn').innerText='✅ In Favoriten';
+        };
+        card.querySelector('.shopBtn').onclick=()=>{ 
+            const shop=prompt(`Wähle Shop:\n1.Thalia\n2.Bücher.de\n3.Osiander`);
+            if(shop==='1') window.open(book.shops.thalia);
+            else if(shop==='2') window.open(book.shops.buecher);
+            else if(shop==='3') window.open(book.shops.osiander);
+        };
+        container.appendChild(card);
+    });
+}
+
+// Event Listeners
+document.getElementById('searchBtn').onclick=()=>{ searchBooks(document.getElementById('searchInput').value).then(showBooks); }
+document.getElementById('bestBtn').onclick=()=>{ searchBooks("bestseller").then(showBooks); }
+document.getElementById('trendBtn').onclick=()=>{ searchBooks("2025").then(showBooks); }
+document.getElementById('fantasyBtn').onclick=()=>{ searchBooks("subject:fantasy").then(showBooks); }
+document.getElementById('thrillerBtn').onclick=()=>{ searchBooks("subject:thriller").then(showBooks); }
+
+document.getElementById('favBtn').onclick=()=>{ showBooks(favorites); }
+document.getElementById('homeBtn').onclick=()=>{ document.getElementById('bookList').innerHTML=''; }
+</script>
+
+</body>
+</html>
