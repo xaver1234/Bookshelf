@@ -6,13 +6,12 @@
 <title>BookApp</title>
 <style>
 body { font-family: sans-serif; margin:0; padding:0; background:#ecf0f1; }
-header { background:#fff; padding:15px; font-size:24px; color:#2c3e50; font-weight:bold; display:flex; align-items:center; justify-content:space-between; }
+header { background:#fff; padding:15px; font-size:24px; color:#2c3e50; font-weight:bold; display:flex; align-items:center; justify-content: space-between; }
 header span { margin-left:10px; }
-#favoritesBtn { cursor:pointer; background:#e74c3c; color:#fff; border:none; border-radius:5px; padding:5px 10px; font-size:14px; }
 #searchBar { display:flex; padding:10px; gap:5px; }
 #searchInput { flex:1; padding:8px; font-size:16px; }
 button { cursor:pointer; padding:8px; border:none; border-radius:5px; color:#fff; font-weight:bold; }
-.menu { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:5px; padding:10px; }
+.menu { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:10px; }
 .menu button { background:#e67e22; }
 #bookList { padding:10px; display:flex; flex-direction:column; gap:10px; }
 .bookCard { display:flex; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
@@ -22,6 +21,10 @@ button { cursor:pointer; padding:8px; border:none; border-radius:5px; color:#fff
 .bookInfo .author { color:#7f8c8d; }
 .bookInfo .price { color:#27ae60; }
 #pagination { display:flex; justify-content:center; gap:10px; padding:10px; }
+#favoritesBtn { background:#e74c3c; }
+#popupOverlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); display:none; justify-content:center; align-items:center; z-index:1000; }
+#popup { background:#fff; padding:20px; border-radius:10px; text-align:center; max-width:300px; width:80%; }
+#popup button { margin:5px; background:#3498db; }
 footer { display:flex; gap:2px; padding:5px; background:#fff; }
 footer button { flex:1; background:transparent; color:#34495e; font-size:12px; }
 </style>
@@ -38,10 +41,27 @@ footer button { flex:1; background:transparent; color:#34495e; font-size:12px; }
 <button id="searchBtn" style="background:#3498db;">Suchen</button>
 </div>
 
-<div class="menu" id="genreMenu"></div>
+<div class="menu">
+<button id="bestBtn">⭐ Bestseller</button>
+<button id="trendBtn">🔥 Trending</button>
+<button id="fantasyBtn">🧙 Fantasy</button>
+<button id="thrillerBtn">🔪 Thriller</button>
+</div>
 
 <div id="bookList"></div>
 <div id="pagination"></div>
+
+<!-- Popup für Preisvergleich -->
+<div id="popupOverlay">
+  <div id="popup">
+    <div id="popupTitle" style="margin-bottom:10px;font-weight:bold;"></div>
+    <button id="thaliaBtn">Thalia</button>
+    <button id="buecherBtn">Bücher.de</button>
+    <button id="osianderBtn">Osiander</button>
+    <br>
+    <button id="closePopup" style="background:#e74c3c;">Schließen</button>
+  </div>
+</div>
 
 <footer>
 <button id="homeBtn">🏠 Home</button>
@@ -50,13 +70,12 @@ footer button { flex:1; background:transparent; color:#34495e; font-size:12px; }
 <script>
 const API_KEY = "AIzaSyBNQimCLKzMGe2R28r7Q3AHCG9Nzyu4ikI";
 let favorites = JSON.parse(localStorage.getItem('favorites')||'[]');
+
 let currentQuery = "";
 let currentPage = 1;
 const maxPage = 20;
 const resultsPerPage = 20;
-
-// Alle Genres
-const genres = ["fantasy","thriller","romance","mystery","science","fiction","history","biography","children","comics","horror","selfhelp","business","travel"];
+let currentBookShops = {}; // speichert Shops für Popup
 
 function parseBooks(data){
     return (data.items||[]).map(item=>{
@@ -75,15 +94,15 @@ function parseBooks(data){
             description: vol.description||"Keine Beschreibung verfügbar.",
             isbn:isbn,
             shops:{
-                thalia: isbn ? `https://www.thalia.de/shop/${isbn}` : `https://www.thalia.de/suche?sq=${encodeURIComponent(vol.title)}`,
-                buecher:`https://www.buecher.de/suche/${encodeURIComponent(vol.title)}`,
-                osiander:`https://www.osiander.de/suche/${encodeURIComponent(vol.title)}`
+                thalia: isbn ? `https://www.thalia.de/shop/${isbn}` : `https://www.thalia.de/suche?sq=${vol.title}`,
+                buecher:`https://www.buecher.de/suche/${vol.title}`,
+                osiander:`https://www.osiander.de/suche/${vol.title}`
             }
-        };
+        }
     });
 }
 
-async function searchBooks(query,page=1){
+async function searchBooks(query, page=1){
     try {
         const startIndex = (page-1)*resultsPerPage;
         const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&langRestrict=de&maxResults=${resultsPerPage}&startIndex=${startIndex}&printType=books&key=${API_KEY}`;
@@ -118,16 +137,15 @@ function showBooks(books){
                 <button class="shopBtn">💰 Preis vergleichen</button>
             </div>
         `;
-        card.querySelector('.favBtn').onclick=()=>{
-            if(!favorites.some(f=>f.id===book.id)) favorites.push(book);
+        card.querySelector('.favBtn').onclick=()=>{ 
+            if(!favorites.some(f=>f.id===book.id)) favorites.push(book); 
             localStorage.setItem('favorites', JSON.stringify(favorites));
             card.querySelector('.favBtn').innerText='✅ In Favoriten';
         };
-        card.querySelector('.shopBtn').onclick=()=>{
-            const shop=prompt(`Wähle Shop:\n1.Thalia\n2.Bücher.de\n3.Osiander`);
-            if(shop==='1') window.open(book.shops.thalia);
-            else if(shop==='2') window.open(book.shops.buecher);
-            else if(shop==='3') window.open(book.shops.osiander);
+        card.querySelector('.shopBtn').onclick=()=>{ 
+            currentBookShops = book.shops;
+            document.getElementById('popupTitle').innerText = book.title;
+            document.getElementById('popupOverlay').style.display='flex';
         };
         container.appendChild(card);
     });
@@ -138,46 +156,39 @@ function showBooks(books){
     if(currentPage>1){
         const prev = document.createElement('button');
         prev.innerText='⬅ Zurück';
-        prev.onclick=()=>{ currentPage--; searchBooks(currentQuery,currentPage).then(showBooks); };
+        prev.onclick=()=>{ currentPage--; searchBooks(currentQuery, currentPage).then(showBooks); };
         pagination.appendChild(prev);
     }
     if(currentPage<maxPage){
         const next = document.createElement('button');
         next.innerText='➡ Weiter';
-        next.onclick=()=>{ currentPage++; searchBooks(currentQuery,currentPage).then(showBooks); };
+        next.onclick=()=>{ currentPage++; searchBooks(currentQuery, currentPage).then(showBooks); };
         pagination.appendChild(next);
     }
 }
 
-// Favoriten anzeigen
-document.getElementById('favoritesBtn').onclick=()=>{
-    showBooks(favorites);
-    document.getElementById('pagination').innerHTML='';
-};
-
-// Start Search
+// Event Listeners
 function startSearch(query){
-    currentQuery=query;
-    currentPage=1;
-    searchBooks(query,currentPage).then(showBooks);
+    currentQuery = query;
+    currentPage = 1;
+    searchBooks(query, currentPage).then(showBooks);
 }
 
-// Genre Menü aufbauen
-const genreMenu = document.getElementById('genreMenu');
-genres.forEach(g=>{
-    const btn=document.createElement('button');
-    btn.innerText=g.charAt(0).toUpperCase()+g.slice(1);
-    btn.onclick=()=>startSearch(`subject:${g}`);
-    genreMenu.appendChild(btn);
-});
+document.getElementById('searchBtn').onclick=()=>{ startSearch(document.getElementById('searchInput').value); }
+document.getElementById('bestBtn').onclick=()=>{ startSearch("bestseller"); }
+document.getElementById('trendBtn').onclick=()=>{ startSearch("2025"); }
+document.getElementById('fantasyBtn').onclick=()=>{ startSearch("subject:fantasy"); }
+document.getElementById('thrillerBtn').onclick=()=>{ startSearch("subject:thriller"); }
 
-// Event Listeners
-document.getElementById('searchBtn').onclick=()=>startSearch(document.getElementById('searchInput').value);
-document.getElementById('homeBtn').onclick=()=>{
-    document.getElementById('bookList').innerHTML='';
-    document.getElementById('pagination').innerHTML='';
-};
+document.getElementById('favoritesBtn').onclick=()=>{ showBooks(favorites); document.getElementById('pagination').innerHTML=''; }
+document.getElementById('homeBtn').onclick=()=>{ document.getElementById('bookList').innerHTML=''; document.getElementById('pagination').innerHTML=''; }
+
+// Popup Buttons
+document.getElementById('thaliaBtn').onclick=()=>{ window.open(currentBookShops.thalia); };
+document.getElementById('buecherBtn').onclick=()=>{ window.open(currentBookShops.buecher); };
+document.getElementById('osianderBtn').onclick=()=>{ window.open(currentBookShops.osiander); };
+document.getElementById('closePopup').onclick=()=>{ document.getElementById('popupOverlay').style.display='none'; };
+
 </script>
-
 </body>
 </html>
