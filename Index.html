@@ -6,13 +6,13 @@
 <title>BookApp</title>
 <style>
 body { font-family: sans-serif; margin:0; padding:0; background:#ecf0f1; }
-header { background:#fff; padding:15px; font-size:24px; color:#2c3e50; font-weight:bold; display:flex; align-items:center; }
+header { background:#fff; padding:15px; font-size:24px; color:#2c3e50; font-weight:bold; display:flex; align-items:center; justify-content:space-between; }
 header span { margin-left:10px; }
-#searchBar { display:flex; padding:10px; gap:5px; }
+#searchBar { display:flex; padding:10px; gap:5px; align-items:center; }
 #searchInput { flex:1; padding:8px; font-size:16px; }
 button { cursor:pointer; padding:8px; border:none; border-radius:5px; color:#fff; font-weight:bold; }
-.menu { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:10px; }
-.menu button { background:#e67e22; }
+.menu { display:flex; gap:5px; padding:10px; overflow-x:auto; }
+.menu button { background:#e67e22; flex-shrink:0; }
 #bookList { padding:10px; display:flex; flex-direction:column; gap:10px; }
 .bookCard { display:flex; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
 .bookCard img { width:100px; object-fit:cover; }
@@ -20,36 +20,56 @@ button { cursor:pointer; padding:8px; border:none; border-radius:5px; color:#fff
 .bookInfo .title { font-weight:bold; font-size:16px; color:#2c3e50; }
 .bookInfo .author { color:#7f8c8d; }
 .bookInfo .price { color:#27ae60; }
+#pagination { display:flex; justify-content:center; gap:10px; padding:10px; }
 footer { display:flex; gap:2px; padding:5px; background:#fff; }
 footer button { flex:1; background:transparent; color:#34495e; font-size:12px; }
 </style>
 </head>
 <body>
 
-<header>📚 <span>BookApp</span></header>
+<header>
+  📚 <span>BookApp</span>
+  <button id="favBtn" style="background:#e74c3c;">❤️ Favoriten</button>
+</header>
 
 <div id="searchBar">
 <input type="text" id="searchInput" placeholder="Buchtitel, Autor..." />
 <button id="searchBtn" style="background:#3498db;">Suchen</button>
+<select id="genreSelect" style="padding:8px; border-radius:5px;">
+  <option value="">Alle Genres</option>
+  <option value="subject:fiction">Fiction</option>
+  <option value="subject:fantasy">Fantasy</option>
+  <option value="subject:thriller">Thriller</option>
+  <option value="subject:romance">Romance</option>
+  <option value="subject:science">Science</option>
+  <option value="subject:history">History</option>
+  <option value="subject:biography">Biography</option>
+  <option value="subject:mystery">Mystery</option>
+  <option value="subject:comics">Comics</option>
+  <option value="subject:self-help">Self-Help</option>
+  <option value="subject:technology">Technology</option>
+</select>
 </div>
 
-<div class="menu">
-<button id="bestBtn">⭐ Bestseller</button>
-<button id="trendBtn">🔥 Trending</button>
-<button id="fantasyBtn">🧙 Fantasy</button>
-<button id="thrillerBtn">🔪 Thriller</button>
+<div class="menu" id="genreMenu">
+<!-- Buttons für beliebte Genres -->
 </div>
 
 <div id="bookList"></div>
+<div id="pagination"></div>
 
 <footer>
 <button id="homeBtn">🏠 Home</button>
-<button id="favBtn">❤️ Favoriten</button>
 </footer>
 
 <script>
 const API_KEY = "AIzaSyBNQimCLKzMGe2R28r7Q3AHCG9Nzyu4ikI";
 let favorites = JSON.parse(localStorage.getItem('favorites')||'[]');
+
+let currentQuery = "";
+let currentPage = 1;
+const maxPage = 20;
+const resultsPerPage = 20;
 
 function parseBooks(data){
     return (data.items||[]).map(item=>{
@@ -76,9 +96,10 @@ function parseBooks(data){
     });
 }
 
-async function searchBooks(query){
+async function searchBooks(query, page=1){
     try {
-        const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&langRestrict=de&maxResults=20&printType=books&key=${API_KEY}`;
+        const startIndex = (page-1)*resultsPerPage;
+        const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&langRestrict=de&maxResults=${resultsPerPage}&startIndex=${startIndex}&printType=books&key=${API_KEY}`;
         const res = await fetch(url);
         if(!res.ok) throw new Error("Fehler bei der API-Abfrage");
         const data = await res.json();
@@ -94,6 +115,7 @@ function showBooks(books){
     container.innerHTML='';
     if(!books.length){
         container.innerHTML='<div>Keine Bücher gefunden oder API-Limit erreicht. Versuche einen anderen Suchbegriff.</div>';
+        document.getElementById('pagination').innerHTML='';
         return;
     }
     books.forEach(book=>{
@@ -122,17 +144,52 @@ function showBooks(books){
         };
         container.appendChild(card);
     });
+
+    // Pagination
+    const pagination = document.getElementById('pagination');
+    pagination.innerHTML='';
+    if(currentPage>1){
+        const prev = document.createElement('button');
+        prev.innerText='⬅ Zurück';
+        prev.onclick=()=>{ currentPage--; searchBooks(currentQuery, currentPage).then(showBooks); };
+        pagination.appendChild(prev);
+    }
+    if(currentPage<maxPage){
+        const next = document.createElement('button');
+        next.innerText='➡ Weiter';
+        next.onclick=()=>{ currentPage++; searchBooks(currentQuery, currentPage).then(showBooks); };
+        pagination.appendChild(next);
+    }
 }
 
 // Event Listeners
-document.getElementById('searchBtn').onclick=()=>{ searchBooks(document.getElementById('searchInput').value).then(showBooks); }
-document.getElementById('bestBtn').onclick=()=>{ searchBooks("bestseller").then(showBooks); }
-document.getElementById('trendBtn').onclick=()=>{ searchBooks("2025").then(showBooks); }
-document.getElementById('fantasyBtn').onclick=()=>{ searchBooks("subject:fantasy").then(showBooks); }
-document.getElementById('thrillerBtn').onclick=()=>{ searchBooks("subject:thriller").then(showBooks); }
+function startSearch(query){
+    currentQuery = query;
+    currentPage = 1;
+    searchBooks(query, currentPage).then(showBooks);
+}
 
-document.getElementById('favBtn').onclick=()=>{ showBooks(favorites); }
-document.getElementById('homeBtn').onclick=()=>{ document.getElementById('bookList').innerHTML=''; }
+document.getElementById('searchBtn').onclick=()=>{ 
+    const genre = document.getElementById('genreSelect').value;
+    const searchTerm = document.getElementById('searchInput').value;
+    startSearch(genre ? `${searchTerm} ${genre}` : searchTerm);
+}
+
+// Genre Buttons Menü
+const genres = ["fiction","fantasy","thriller","romance","science","history","biography","mystery","comics","self-help","technology"];
+const menu = document.getElementById('genreMenu');
+genres.forEach(g=>{
+    const btn = document.createElement('button');
+    btn.innerText = g.charAt(0).toUpperCase() + g.slice(1);
+    btn.onclick = ()=>{ startSearch(`subject:${g}`); }
+    menu.appendChild(btn);
+});
+
+// Favoriten Button oben rechts
+document.getElementById('favBtn').onclick=()=>{ showBooks(favorites); document.getElementById('pagination').innerHTML=''; }
+
+// Home Button
+document.getElementById('homeBtn').onclick=()=>{ document.getElementById('bookList').innerHTML=''; document.getElementById('pagination').innerHTML=''; }
 </script>
 
 </body>
