@@ -5,29 +5,219 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BookApp</title>
 <style>
-body { font-family: sans-serif; margin:0; padding:0; background:#ecf0f1; }
-header { background:#fff; padding:15px; font-size:24px; color:#2c3e50; font-weight:bold; display:flex; justify-content:space-between; align-items:center; }
-header span { margin-left:10px; }
-#searchBar { display:flex; padding:10px; gap:5px; }
-#searchInput { flex:1; padding:8px; font-size:16px; }
-button { cursor:pointer; padding:8px; border:none; border-radius:5px; color:#fff; font-weight:bold; }
-.menu { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; padding:10px; }
-.menu button { background:#e67e22; font-size:14px; }
-#bookList { padding:10px; display:flex; flex-direction:column; gap:10px; }
-.bookCard { display:flex; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
-.bookCard img { width:100px; object-fit:cover; }
-.bookInfo { padding:10px; display:flex; flex-direction:column; gap:5px; flex:1; }
-.bookInfo .title { font-weight:bold; font-size:16px; color:#2c3e50; }
-.bookInfo .author { color:#7f8c8d; }
-.bookInfo .price { color:#27ae60; }
-#pagination { display:flex; justify-content:center; gap:10px; padding:10px; }
-#favoritesBtn { background:#c0392b; font-size:14px; }
-#popupOverlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); display:none; justify-content:center; align-items:center; z-index:1000; }
-#popup { background:#fff; padding:20px; border-radius:10px; text-align:center; max-width:300px; width:80%; }
-#popup button { margin:5px; background:#3498db; }
-#closePopup { background:#e74c3c; }
-footer { display:flex; gap:2px; padding:5px; background:#fff; }
-footer button { flex:1; background:transparent; color:#34495e; font-size:12px; }
+/* Grundlayout */
+body {
+    margin:0;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background:#f9f9f9;
+    color:#222;
+}
+header {
+    background:#fff;
+    padding:15px 25px;
+    font-size:24px;
+    font-weight:bold;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    border-bottom:1px solid #e0e0e0;
+}
+header span { color:#333; }
+#favoritesBtn {
+    background:#e74c3c;
+    color:#fff;
+    border:none;
+    font-size:16px;
+    padding:6px 12px;
+    border-radius:12px;
+    cursor:pointer;
+    transition:0.3s;
+}
+#favoritesBtn:hover { background:#c0392b; }
+
+/* Suche */
+#searchBar {
+    display:flex;
+    padding:15px 20px;
+    gap:10px;
+    justify-content:center;
+}
+#searchInput {
+    flex:1;
+    padding:10px;
+    font-size:16px;
+    border:1px solid #ccc;
+    border-radius:12px;
+}
+#searchBtn {
+    background:#2c3e50;
+    color:#fff;
+    border:none;
+    padding:10px 20px;
+    font-weight:bold;
+    border-radius:12px;
+    cursor:pointer;
+    transition:0.3s;
+}
+#searchBtn:hover { background:#1a252f; }
+
+/* Genres */
+.menu {
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:10px;
+    padding:10px 20px;
+}
+.menu button {
+    background:#fff;
+    border:1px solid #ccc;
+    border-radius:20px;
+    padding:8px 16px;
+    font-size:14px;
+    cursor:pointer;
+    transition:0.3s;
+    box-shadow:0 2px 5px rgba(0,0,0,0.05);
+}
+.menu button:hover { background:#2c3e50; color:#fff; border-color:#2c3e50; }
+
+/* Buchliste */
+#bookList {
+    padding:20px;
+    display:flex;
+    flex-direction:column;
+    gap:15px;
+    max-width:900px;
+    margin:auto;
+}
+.bookCard {
+    display:flex;
+    background:#fff;
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    transition:0.3s;
+}
+.bookCard:hover { transform: translateY(-2px); }
+.bookCard img {
+    width:100px;
+    object-fit:cover;
+    border-right:1px solid #eee;
+}
+.bookInfo {
+    padding:15px;
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    flex:1;
+}
+.bookInfo .title {
+    font-weight:600;
+    font-size:16px;
+}
+.bookInfo .author {
+    font-size:14px;
+    color:#777;
+}
+.bookInfo .price {
+    font-size:15px;
+    color:#27ae60;
+    font-weight:600;
+}
+.bookInfo button {
+    margin-top:8px;
+    padding:8px 12px;
+    border-radius:12px;
+    font-size:14px;
+    font-weight:500;
+    cursor:pointer;
+    border:none;
+    box-shadow:0 2px 5px rgba(0,0,0,0.08);
+    transition:0.3s;
+}
+.favBtn { background:#e74c3c; color:#fff; }
+.favBtn:hover { background:#c0392b; }
+.shopBtn { background:#2c3e50; color:#fff; }
+.shopBtn:hover { background:#1a252f; }
+
+/* Pagination */
+#pagination {
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    padding:20px;
+}
+#pagination button {
+    background:#fff;
+    border:1px solid #ccc;
+    padding:8px 14px;
+    border-radius:12px;
+    cursor:pointer;
+    transition:0.3s;
+    box-shadow:0 2px 5px rgba(0,0,0,0.05);
+}
+#pagination button:hover { background:#2c3e50; color:#fff; border-color:#2c3e50; }
+
+/* Popup */
+#popupOverlay {
+    position: fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    background: rgba(0,0,0,0.4);
+    display:none;
+    justify-content:center;
+    align-items:center;
+    z-index:1000;
+}
+#popup {
+    background:#fff;
+    padding:20px;
+    border-radius:16px;
+    text-align:center;
+    max-width:320px;
+    width:80%;
+    box-shadow:0 8px 25px rgba(0,0,0,0.15);
+}
+#popup button {
+    margin:5px;
+    padding:8px 14px;
+    border-radius:12px;
+    font-size:14px;
+    font-weight:500;
+    cursor:pointer;
+    border:none;
+    box-shadow:0 2px 5px rgba(0,0,0,0.08);
+    transition:0.3s;
+}
+#thaliaBtn, #buecherBtn, #osianderBtn { background:#2c3e50; color:#fff; }
+#thaliaBtn:hover, #buecherBtn:hover, #osianderBtn:hover { background:#1a252f; }
+#closePopup { background:#e74c3c; color:#fff; }
+#closePopup:hover { background:#c0392b; }
+
+/* Footer */
+footer {
+    display:flex;
+    gap:2px;
+    padding:12px;
+    background:#fff;
+    border-top:1px solid #e0e0e0;
+}
+footer button {
+    flex:1;
+    background:transparent;
+    border:none;
+    color:#555;
+    font-size:12px;
+    cursor:pointer;
+    transition:0.3s;
+}
+footer button:hover { color:#2c3e50; }
+
+@media(max-width:768px){
+    #bookList { padding:10px; }
+    .bookCard { flex-direction:column; align-items:center; text-align:center; }
+    .bookCard img { width:80%; border-right:none; border-bottom:1px solid #eee; }
+}
 </style>
 </head>
 <body>
@@ -39,7 +229,7 @@ footer button { flex:1; background:transparent; color:#34495e; font-size:12px; }
 
 <div id="searchBar">
 <input type="text" id="searchInput" placeholder="Buchtitel, Autor..." />
-<button id="searchBtn" style="background:#3498db;">Suchen</button>
+<button id="searchBtn">Suchen</button>
 </div>
 
 <div class="menu" id="genreMenu"></div>
@@ -64,6 +254,7 @@ footer button { flex:1; background:transparent; color:#34495e; font-size:12px; }
 </footer>
 
 <script>
+// Dein JavaScript unverändert
 const API_KEY = "AIzaSyBNQimCLKzMGe2R28r7Q3AHCG9Nzyu4ikI";
 let favorites = JSON.parse(localStorage.getItem('favorites')||'[]');
 let currentQuery = "";
@@ -73,26 +264,19 @@ const resultsPerPage = 20;
 let currentBookShops = {};
 
 const genres = ["fantasy","thriller","romance","science","history","biography","mystery","horror","children","young adult","nonfiction","comics"];
-  
+
 function parseBooks(data){
     return (data.items||[]).map(item=>{
         const vol = item.volumeInfo || {};
         const sale = item.saleInfo || {};
-
         let price = "Preis im Shop ansehen";
-
-        if (sale && sale.listPrice && sale.listPrice.amount) {
-            price = sale.listPrice.amount + " €";
-        }
-
-        const encodedTitle = encodeURIComponent(vol.title || "");
-
+        if(sale && sale.listPrice && sale.listPrice.amount) price = sale.listPrice.amount+" €";
+        const encodedTitle = encodeURIComponent(vol.title||"");
         const shops = {
             thalia: `https://www.thalia.de/suche?sq=${encodedTitle}&stype=suchwort`,
             buecher: `https://www.buecher.de/suche?sq=${encodedTitle}&stype=suchwort`,
             osiander: `https://www.osiander.de/suche?sq=${encodedTitle}&stype=suchwort`
         };
-
         return {
             id:item.id,
             title:vol.title||"Unbekannt",
@@ -104,22 +288,19 @@ function parseBooks(data){
     });
 }
 
-async function searchBooks(query, page=1){
+async function searchBooks(query,page=1){
     try {
-        const startIndex = (page-1)*resultsPerPage;
-        const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&langRestrict=de&maxResults=${resultsPerPage}&startIndex=${startIndex}&printType=books&key=${API_KEY}`;
-        const res = await fetch(url);
+        const startIndex=(page-1)*resultsPerPage;
+        const url=`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&langRestrict=de&maxResults=${resultsPerPage}&startIndex=${startIndex}&printType=books&key=${API_KEY}`;
+        const res=await fetch(url);
         if(!res.ok) throw new Error("Fehler bei der API-Abfrage");
-        const data = await res.json();
+        const data=await res.json();
         return parseBooks(data);
-    } catch(e){
-        console.error(e);
-        return [];
-    }
+    } catch(e){ console.error(e); return []; }
 }
 
 function showBooks(books){
-    const container = document.getElementById('bookList');
+    const container=document.getElementById('bookList');
     container.innerHTML='';
     if(!books.length){
         container.innerHTML='<div>Keine Bücher gefunden oder API-Limit erreicht.</div>';
@@ -127,7 +308,7 @@ function showBooks(books){
         return;
     }
     books.forEach(book=>{
-        const card = document.createElement('div');
+        const card=document.createElement('div');
         card.className='bookCard';
         card.innerHTML=`
             <img src="${book.cover||'https://via.placeholder.com/100x140?text=📚'}" />
@@ -139,64 +320,52 @@ function showBooks(books){
                 <button class="shopBtn">💰 Preis vergleichen</button>
             </div>
         `;
-        card.querySelector('.favBtn').onclick=()=>{ 
-            if(!favorites.some(f=>f.id===book.id)) favorites.push(book); 
-            localStorage.setItem('favorites', JSON.stringify(favorites));
+        card.querySelector('.favBtn').onclick=()=>{
+            if(!favorites.some(f=>f.id===book.id)) favorites.push(book);
+            localStorage.setItem('favorites',JSON.stringify(favorites));
             card.querySelector('.favBtn').innerText='✅ In Favoriten';
         };
-        card.querySelector('.shopBtn').onclick=()=>{ 
-            currentBookShops = book.shops;
-            document.getElementById('popupTitle').innerText = book.title;
+        card.querySelector('.shopBtn').onclick=()=>{
+            currentBookShops=book.shops;
+            document.getElementById('popupTitle').innerText=book.title;
             document.getElementById('popupOverlay').style.display='flex';
         };
         container.appendChild(card);
     });
 
-    // Pagination
-    const pagination = document.getElementById('pagination');
+    const pagination=document.getElementById('pagination');
     pagination.innerHTML='';
     if(currentPage>1){
-        const prev = document.createElement('button');
+        const prev=document.createElement('button');
         prev.innerText='⬅ Zurück';
-        prev.onclick=()=>{ currentPage--; searchBooks(currentQuery, currentPage).then(showBooks); };
+        prev.onclick=()=>{currentPage--;searchBooks(currentQuery,currentPage).then(showBooks);};
         pagination.appendChild(prev);
     }
     if(currentPage<maxPage){
-        const next = document.createElement('button');
+        const next=document.createElement('button');
         next.innerText='➡ Weiter';
-        next.onclick=()=>{ currentPage++; searchBooks(currentQuery, currentPage).then(showBooks); };
+        next.onclick=()=>{currentPage++;searchBooks(currentQuery,currentPage).then(showBooks);};
         pagination.appendChild(next);
     }
 }
 
-function startSearch(query){
-    currentQuery = query;
-    currentPage = 1;
-    searchBooks(query, currentPage).then(showBooks);
-}
+function startSearch(query){ currentQuery=query; currentPage=1; searchBooks(query,currentPage).then(showBooks); }
 
-// Favorites Button
 document.getElementById('favoritesBtn').onclick=()=>{ showBooks(favorites); document.getElementById('pagination').innerHTML=''; };
-
-// Search & Home Buttons
 document.getElementById('searchBtn').onclick=()=>{ startSearch(document.getElementById('searchInput').value); };
 document.getElementById('homeBtn').onclick=()=>{ document.getElementById('bookList').innerHTML=''; document.getElementById('pagination').innerHTML=''; };
-
-// Popup Buttons
-document.getElementById('thaliaBtn').onclick=()=>{ window.open(currentBookShops.thalia, '_blank'); };
-document.getElementById('buecherBtn').onclick=()=>{ window.open(currentBookShops.buecher, '_blank'); };
-document.getElementById('osianderBtn').onclick=()=>{ window.open(currentBookShops.osiander, '_blank'); };
+document.getElementById('thaliaBtn').onclick=()=>{ window.open(currentBookShops.thalia,'_blank'); };
+document.getElementById('buecherBtn').onclick=()=>{ window.open(currentBookShops.buecher,'_blank'); };
+document.getElementById('osianderBtn').onclick=()=>{ window.open(currentBookShops.osiander,'_blank'); };
 document.getElementById('closePopup').onclick=()=>{ document.getElementById('popupOverlay').style.display='none'; };
 
-// Genres dynamisch
-const genreMenu = document.getElementById('genreMenu');
+const genreMenu=document.getElementById('genreMenu');
 genres.forEach(g=>{
-    const btn = document.createElement('button');
-    btn.innerText = g.charAt(0).toUpperCase() + g.slice(1);
-    btn.onclick = ()=>{ startSearch("subject:"+g); };
+    const btn=document.createElement('button');
+    btn.innerText=g.charAt(0).toUpperCase()+g.slice(1);
+    btn.onclick=()=>{ startSearch("subject:"+g); };
     genreMenu.appendChild(btn);
 });
 </script>
-
 </body>
 </html>
